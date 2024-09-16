@@ -57,5 +57,8 @@
             "@lint",
             "@test:integration"
         ]
+    },
+    "config": {
+        "sort-packages": true
     }
 }
