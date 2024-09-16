@@ -22,10 +22,11 @@
         "google/protobuf": "^4.0"
     },
     "require-dev": {
+        "laravel/pint": "^1.0",
         "orchestra/testbench": "^7.37|^8.17",
+        "php-http/guzzle7-adapter": "^1.0",
         "phpstan/phpstan": "^1.10",
         "phpstan/phpstan-strict-rules": "^1.5",
-        "laravel/pint": "^1.0",
         "rector/rector": "^0.18.12"
     },
     "autoload": {
