@@ -18,7 +18,8 @@
     ],
     "require": {
         "php": "^8.0",
-        "dew-serverless/acs-sdk-php": "^0.2.0"
+        "dew-serverless/acs-sdk-php": "^0.2.0",
+        "google/protobuf": "^4.0"
     },
     "require-dev": {
         "orchestra/testbench": "^7.37|^8.17",
