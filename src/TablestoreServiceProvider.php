@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Dew\TablestoreDriver;
 
-use Dew\Tablestore\Tablestore;
+use Dew\Acs\Tablestore\TablestoreInstance;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,18 +29,15 @@ final class TablestoreServiceProvider extends ServiceProvider
     private function registerCacheDriver(): void
     {
         Cache::extend('tablestore', function ($app, $config) {
-            $client = new Tablestore(
-                $config['key'], $config['secret'],
-                $config['endpoint'], $config['instance'] ?? null
-            );
-
-            if (isset($config['token'])) {
-                $client->tokenUsing($config['token']);
-            }
-
-            if (isset($config['http'])) {
-                $client->optionsUsing($config['http']);
-            }
+            $client = new TablestoreInstance([
+                'credentials' => [
+                    'key' => $config['key'],
+                    'secret' => $config['secret'],
+                    'token' => $config['token'] ?? null,
+                ],
+                'instance' => $config['instance'] ?? null,
+                'endpoint' => $config['endpoint'],
+            ]);
 
             return Cache::repository(
                 new TablestoreStore(
