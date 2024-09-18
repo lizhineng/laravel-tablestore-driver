@@ -17,7 +17,7 @@
         }
     ],
     "require": {
-        "php": "^8.0",
+        "php": "^8.2",
         "dew-serverless/acs-sdk-php": "^0.2.0",
         "google/protobuf": "^4.0"
     },
