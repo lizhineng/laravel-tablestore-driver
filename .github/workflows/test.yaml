@@ -10,7 +10,7 @@ jobs:
 
     strategy:
       matrix:
-        php: ['8.0', '8.1', '8.2', '8.3']
+        php: ['8.2', '8.3']
         dependency-version: [prefer-lowest, prefer-stable]
 
     name: PHP ${{ matrix.php }} - ${{ matrix.dependency-version }}
@@ -59,4 +59,3 @@ jobs:
           ACS_ACCESS_KEY_SECRET: ${{ secrets.ACS_ACCESS_KEY_SECRET }}
           TABLESTORE_ENDPOINT: ${{ secrets.TABLESTORE_ENDPOINT }}
           TABLESTORE_TABLE: ${{ secrets.TABLESTORE_TABLE }}
-

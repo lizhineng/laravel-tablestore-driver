@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Dew\TablestoreDriver;
 
-use Dew\Tablestore\Attribute;
-use Dew\Tablestore\Exceptions\TablestoreException;
-use Dew\Tablestore\PlainbufferWriter;
-use Dew\Tablestore\PrimaryKey;
-use Dew\Tablestore\Responses\RowDecodableResponse;
-use Dew\Tablestore\Tablestore;
+use Dew\Acs\Tablestore\Attribute;
+use Dew\Acs\Tablestore\InstanceException;
+use Dew\Acs\Tablestore\Messages\ComparatorType;
+use Dew\Acs\Tablestore\Messages\Filter;
+use Dew\Acs\Tablestore\Messages\FilterType;
+use Dew\Acs\Tablestore\Messages\SingleColumnValueFilter;
+use Dew\Acs\Tablestore\Plainbuf;
+use Dew\Acs\Tablestore\PlainBufferWriter;
+use Dew\Acs\Tablestore\PrimaryKey;
+use Dew\Acs\Tablestore\TablestoreInstance;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Store;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\InteractsWithTime;
 use InvalidArgumentException;
-use Protos\ComparatorType;
-use Protos\Filter;
-use Protos\FilterType;
-use Protos\SingleColumnValueFilter;
 use RuntimeException;
 
 final class TablestoreStore implements LockProvider, Store
@@ -34,7 +34,7 @@ final class TablestoreStore implements LockProvider, Store
      * Create a Tablestore cache store.
      */
     public function __construct(
-        protected Tablestore $tablestore,
+        protected TablestoreInstance $tablestore,
         protected string $table,
         protected string $keyAttribute = 'key',
         protected string $valueAttribute = 'value',
@@ -52,16 +52,19 @@ final class TablestoreStore implements LockProvider, Store
      */
     public function get($key)
     {
-        $item = $this->tablestore->table($this->table)
+        $buffer = $this->tablestore->table($this->table)
             ->whereKey($this->keyAttribute, $this->prefix.$key)
             ->where($this->expirationAttribute, '>', Carbon::now()->getTimestamp())
-            ->get()->getDecodedRow();
+            ->get()
+            ->getRow();
 
-        if ($item === null) {
+        if ($buffer === '') {
             return;
         }
 
-        /** @var \Dew\Tablestore\Contracts\HasValue[] */
+        $item = Plainbuf::decode($buffer);
+
+        /** @var \Dew\Acs\Tablestore\Cells\HasValue[] */
         $values = $item[$this->valueAttribute] ?? [];
 
         return isset($values[0]) ? $this->unserialize($values[0]->value()) : null;
@@ -95,23 +98,25 @@ final class TablestoreStore implements LockProvider, Store
 
         $result = array_fill_keys($keys, null);
 
-        /** @var \Protos\TableInBatchGetRowResponse[] */
+        /** @var \Dew\Acs\Tablestore\Messages\TableInBatchGetRowResponse[] */
         $tables = $response->getTables();
 
-        /** @var \Protos\RowInBatchGetRowResponse[] */
+        /** @var \Dew\Acs\Tablestore\Messages\RowInBatchGetRowResponse[] */
         $rows = $tables[0]->getRows();
 
         foreach ($rows as $row) {
-            $item = (new RowDecodableResponse($row))->getDecodedRow();
+            $buffer = $row->getRow();
 
-            if ($item === null) {
+            if ($buffer === '') {
                 continue;
             }
 
-            /** @var \Dew\Tablestore\Cells\StringPrimaryKey */
+            $item = Plainbuf::decode($buffer);
+
+            /** @var \Dew\Acs\Tablestore\Cells\StringPrimaryKey */
             $key = $item[$this->keyAttribute];
 
-            /** @var \Dew\Tablestore\Contracts\HasValue[] */
+            /** @var \Dew\Acs\Tablestore\Cells\HasValue[] */
             $values = $item[$this->valueAttribute] ?? [];
 
             if (isset($values[0])) {
@@ -183,7 +188,7 @@ final class TablestoreStore implements LockProvider, Store
     {
         try {
             Attribute::integer($this->expirationAttribute, Carbon::now()->getTimestamp())
-                ->toFormattedValue($now = new PlainbufferWriter);
+                ->toFormattedValue($now = new PlainBufferWriter);
 
             // Include only items that do not exist or that have expired
             // expression: expiration <= now
@@ -205,8 +210,8 @@ final class TablestoreStore implements LockProvider, Store
                     Attribute::createFromValue($this->valueAttribute, $this->serialize($value)),
                     Attribute::integer($this->expirationAttribute, $this->toTimestamp($seconds)),
                 ]);
-        } catch (TablestoreException $e) {
-            if ($e->getError()->getCode() === 'OTSConditionCheckFail') {
+        } catch (InstanceException $e) {
+            if ($e->getError()?->getCode() === 'OTSConditionCheckFail') {
                 return false;
             }
 
@@ -235,8 +240,8 @@ final class TablestoreStore implements LockProvider, Store
                 ]);
 
             return true;
-        } catch (TablestoreException $e) {
-            if ($e->getError()->getCode() === 'OTSConditionCheckFail') {
+        } catch (InstanceException $e) {
+            if ($e->getError()?->getCode() === 'OTSConditionCheckFail') {
                 return false;
             }
 
@@ -263,8 +268,8 @@ final class TablestoreStore implements LockProvider, Store
                 ]);
 
             return true;
-        } catch (TablestoreException $e) {
-            if ($e->getError()->getCode() === 'OTSConditionCheckFail') {
+        } catch (InstanceException $e) {
+            if ($e->getError()?->getCode() === 'OTSConditionCheckFail') {
                 return false;
             }
 
@@ -399,7 +404,7 @@ final class TablestoreStore implements LockProvider, Store
     /**
      * The underlying Tablestore client.
      */
-    public function getClient(): Tablestore
+    public function getClient(): TablestoreInstance
     {
         return $this->tablestore;
     }
